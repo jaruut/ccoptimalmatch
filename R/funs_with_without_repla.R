@@ -21,7 +21,28 @@ iterations_per_round <- function(dataset, cluster_var, Id_Patient, total_cont_pe
 
 }
 
+iterations_per_round_random <- function(dataset, cluster_var, Id_Patient, total_cont_per_case, case_control, mat_per_case = NULL) {
+    cluster_var <- enquo(cluster_var)
+    Id_Patient <- enquo(Id_Patient)
+    total_cont_per_case <- enquo(total_cont_per_case)
 
+    one_to_one = dataset %>% group_by((!!cluster_var)) %>% slice_sample(n = total_cont_per_case, replace = FALSE) %>% filter(row_number() <= 2)
+    dup_con = one_to_one %>% distinct() %>% group_by((!!Id_Patient)) %>% filter(n() > 1) %>% arrange((!!Id_Patient), (!!total_cont_per_case)) %>% filter(row_number() ==1)
+    if (nrow(dup_con) > 0) {
+        one_to_one <- anti_join(one_to_one, dup_con, by = quo_name(Id_Patient))  # library(rlang) is needed
+        one_to_one <- bind_rows(one_to_one, dup_con) %>% arrange((!!cluster_var), case_control)
+        one_to_one <- one_to_one %>% group_by((!!cluster_var)) %>% mutate(mat_per_case = n() - 1)
+        case_cntrl_1st_wave <- one_to_one %>% filter(mat_per_case == 1) %>% select(-mat_per_case)
+        dataset <- anti_join(dataset, case_cntrl_1st_wave, by = quo_name(cluster_var))
+        dataset <- anti_join(dataset, case_cntrl_1st_wave, by = quo_name(Id_Patient))
+    } else {
+        one_to_one <- one_to_one %>% group_by((!!cluster_var)) %>% mutate(mat_per_case = n() - 1)
+        case_cntrl_1st_wave <- one_to_one %>% filter(mat_per_case == 1) %>% select(-mat_per_case)
+        dataset <- NULL
+    }
+    return(list(case_cntrl_1st_wave = case_cntrl_1st_wave, dataset = dataset, dup_con = dup_con))
+
+}
 
 #' optimal_matching
 #'
@@ -49,7 +70,8 @@ iterations_per_round <- function(dataset, cluster_var, Id_Patient, total_cont_pe
 
 
 optimal_matching <- function(total_database, n_con, cluster_var, Id_Patient,
-                             total_cont_per_case, case_control, with_replacement = FALSE) {
+                             total_cont_per_case, case_control, with_replacement = FALSE,
+                             randomisation = FALSE) {
 
     if (anyNA(total_database)==TRUE){
         stop("Error: Missing values exist in the data")
@@ -112,8 +134,12 @@ optimal_matching <- function(total_database, n_con, cluster_var, Id_Patient,
                     tmp_database <- tmp_database
                     while (dup_con > 0) {
                         counter <- counter + 1
+                        if (randomisation == TRUE) {
+                            datasets <- iterations_per_round_random(tmp_database, !!cluster_var, !!Id_Patient, !!total_cont_per_case)
+                        } else {
+                            datasets <- iterations_per_round(tmp_database, !!cluster_var, !!Id_Patient, !!total_cont_per_case)
+                        }
                         # 1 iteration
-                        datasets <- iterations_per_round(tmp_database, !!cluster_var, !!Id_Patient, !!total_cont_per_case)
                         wave_data[[counter]] <- datasets[[1]]
                         tmp_database <- datasets[[2]]
                         dup_con <- nrow(datasets[[3]])

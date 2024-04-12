@@ -11,7 +11,8 @@ optimal_matching(
   Id_Patient,
   total_cont_per_case,
   case_control,
-  with_replacement = FALSE
+  with_replacement = FALSE,
+  randomisation = FALSE
 )
 }
 \arguments{
@@ -28,6 +29,8 @@ optimal_matching(
 \item{case_control}{a variable containing "case" and "control"}
 
 \item{with_replacement}{Use replacement or not}
+
+\item{randomisation}{are controls randomly selected from the pool of available controls for each case}
 }
 \value{
 a data frame containing the cases and the corresponding number of controls

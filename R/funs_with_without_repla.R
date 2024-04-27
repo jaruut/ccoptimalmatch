@@ -26,7 +26,7 @@ iterations_per_round_random <- function(dataset, cluster_var, Id_Patient, total_
     Id_Patient <- enquo(Id_Patient)
     total_cont_per_case <- enquo(total_cont_per_case)
 
-    one_to_one = dataset %>% group_by((!!cluster_var)) %>% slice_sample(n = total_cont_per_case, replace = FALSE) %>% filter(row_number() <= 2)
+    one_to_one = dataset %>% group_by((!!cluster_var))%>% filter(row_number() <= 2) %>% slice_sample(n = 10*total_cont_per_case, replace = FALSE) 
     dup_con = one_to_one %>% distinct() %>% group_by((!!Id_Patient)) %>% filter(n() > 1) %>% arrange((!!Id_Patient), (!!total_cont_per_case)) %>% filter(row_number() ==1)
     if (nrow(dup_con) > 0) {
         one_to_one <- anti_join(one_to_one, dup_con, by = quo_name(Id_Patient))  # library(rlang) is needed
